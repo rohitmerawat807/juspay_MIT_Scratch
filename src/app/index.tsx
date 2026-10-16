@@ -1,19 +1,55 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Palette from '@/components/palette';
+import ScriptArea from '@/components/script-area';
+import Stage from '@/components/stage';
+import { Bubble, runScript } from '@/engine/run-script';
+import { useScript } from '@/hooks/use-script';
+import { useSprite } from '@/hooks/use-sprite';
+
 export default function EditorScreen() {
+  const sprite = useSprite();
+  const script = useScript();
+  const [bubble, setBubble] = useState<Bubble | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const play = async () => {
+    setRunning(true);
+    try {
+      await runScript(script.blocks, { sprite, setBubble });
+    } finally {
+      setBubble(null);
+      setRunning(false);
+    }
+  };
+
+  const disabled = running || script.blocks.length === 0;
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.toolbar}>
+      <View style={styles.header}>
         <Text style={styles.title}>Scratch</Text>
+        <View style={styles.buttons}>
+          <Pressable
+            onPress={sprite.reset}
+            disabled={running}
+            style={[styles.button, styles.resetButton, running && styles.disabled]}>
+            <Text style={styles.buttonText}>Reset</Text>
+          </Pressable>
+          <Pressable
+            onPress={play}
+            disabled={disabled}
+            style={[styles.button, styles.playButton, disabled && styles.disabled]}>
+            <Text style={styles.buttonText}>Play</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.stage} />
-
-      <View style={styles.editor}>
-        <View style={styles.palette} />
-        <View style={styles.script} />
-      </View>
+      <Stage sprite={sprite} bubble={bubble} />
+      <Palette onAdd={script.add} />
+      <ScriptArea blocks={script.blocks} onRemove={script.remove} onChangeArg={script.setArg} />
     </SafeAreaView>
   );
 }
@@ -21,42 +57,41 @@ export default function EditorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#e9f1fc',
+    backgroundColor: '#fff',
   },
-  toolbar: {
-    height: 48,
-    paddingHorizontal: 12,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#855cd6',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
   },
   title: {
-    color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  stage: {
-    aspectRatio: 4 / 3,
-    margin: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d9e3f2',
-    backgroundColor: '#fff',
-  },
-  editor: {
-    flex: 1,
+  buttons: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderColor: '#d9e3f2',
+    gap: 8,
   },
-  palette: {
-    width: 150,
-    backgroundColor: '#fff',
-    borderRightWidth: 1,
-    borderColor: '#d9e3f2',
+  button: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
-  script: {
-    flex: 1,
-    backgroundColor: '#f9f9f9',
+  resetButton: {
+    backgroundColor: '#888',
+  },
+  playButton: {
+    backgroundColor: '#4cbf56',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  disabled: {
+    opacity: 0.4,
   },
 });
