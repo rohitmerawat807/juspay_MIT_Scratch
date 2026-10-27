@@ -4,6 +4,10 @@ A small visual coding editor inspired by [MIT Scratch](https://scratch.mit.edu/p
 
 The original brief is for a web app. I built it as a mobile app (iOS and Android) with React Native and Expo.
 
+## Demo
+
+[Watch the screen recording on Google Drive](https://drive.google.com/file/d/1VQtMhO5cZpKH0kCKnafUH3Z_rPrkDWt6/view?usp=sharing)
+
 ## Running it
 
 ```bash
