@@ -3,6 +3,7 @@ import { Block, BlockDef, BlockType, Category } from './types';
 export const CATEGORIES: Record<Category, { label: string; color: string }> = {
   motion: { label: 'Motion', color: '#4c97ff' },
   looks: { label: 'Looks', color: '#9966ff' },
+  control: { label: 'Control', color: '#ffab19' },
 };
 
 export const BLOCKS: Record<BlockType, BlockDef> = {
@@ -36,6 +37,13 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     parts: ['think', { key: 'message', kind: 'text' }, 'for', { key: 'secs', kind: 'number' }, 'seconds'],
     defaults: { message: 'Hmm...', secs: '2' },
   },
+  repeat: {
+    type: 'repeat',
+    category: 'control',
+    parts: ['repeat', { key: 'times', kind: 'number' }],
+    defaults: { times: '10' },
+    container: true,
+  },
 };
 
 export const blocksIn = (category: Category) =>
@@ -44,5 +52,11 @@ export const blocksIn = (category: Category) =>
 let counter = 0;
 
 export function createBlock(type: BlockType): Block {
-  return { id: `b${++counter}`, type, args: { ...BLOCKS[type].defaults } };
+  const def = BLOCKS[type];
+  return {
+    id: `b${++counter}`,
+    type,
+    args: { ...def.defaults },
+    children: def.container ? [] : undefined,
+  };
 }

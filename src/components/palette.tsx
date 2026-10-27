@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { blocksIn, CATEGORIES } from '@/blocks/catalog';
-import { BlockType, Category } from '@/blocks/types';
+import { Category } from '@/blocks/types';
 import BlockView from './block-view';
+import Draggable from './draggable';
 
 const categories = Object.keys(CATEGORIES) as Category[];
 
-export default function Palette({ onAdd }: { onAdd: (type: BlockType) => void }) {
+export default function Palette() {
   const [category, setCategory] = useState<Category>('motion');
 
   return (
@@ -24,9 +25,9 @@ export default function Palette({ onAdd }: { onAdd: (type: BlockType) => void })
 
       <View style={styles.blocks}>
         {blocksIn(category).map((def) => (
-          <Pressable key={def.type} onPress={() => onAdd(def.type)}>
+          <Draggable key={def.type} item={{ type: def.type }}>
             <BlockView type={def.type} args={def.defaults} />
-          </Pressable>
+          </Draggable>
         ))}
       </View>
     </View>

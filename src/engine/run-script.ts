@@ -1,13 +1,18 @@
 import { Easing, SharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { Block } from '@/blocks/types';
 import { STAGE_HEIGHT, STAGE_WIDTH } from '@/components/stage';
-import { Sprite } from '@/hooks/use-sprite';
+import { Sprite } from '@/hooks/use-sprites';
 
 export type Bubble = { kind: 'say' | 'think'; text: string };
 
+// set cancelled = true to stop a running script after the current step
+export type Token = { cancelled: boolean };
+
 type Context = {
   sprite: Sprite;
+  token: Token;
   setBubble: (bubble: Bubble | null) => void;
 };
 
@@ -21,15 +26,20 @@ const clamp = (value: number, max: number) => Math.min(max, Math.max(-max, value
 
 const toNumber = (value: string) => Number(value) || 0;
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+export const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// resolves when the animation ends, or when another animation replaces it
 function animate(value: SharedValue<number>, to: number) {
-  value.value = withTiming(to, { duration: STEP_MS, easing: Easing.linear });
-  return wait(STEP_MS);
+  return new Promise<void>((resolve) => {
+    const done = () => resolve();
+    value.value = withTiming(to, { duration: STEP_MS, easing: Easing.linear }, () => {
+      scheduleOnRN(done);
+    });
+  });
 }
 
 async function runBlock(block: Block, ctx: Context) {
-  const { sprite, setBubble } = ctx;
+  const { sprite, token, setBubble } = ctx;
   const { args } = block;
 
   switch (block.type) {
@@ -59,13 +69,23 @@ async function runBlock(block: Block, ctx: Context) {
     case 'think':
       setBubble({ kind: block.type, text: args.message });
       await wait(toNumber(args.secs) * 1000);
-      setBubble(null);
+      if (!token.cancelled) setBubble(null);
       break;
+
+    case 'repeat': {
+      if (!block.children?.length) break;
+      const times = Math.floor(toNumber(args.times));
+      for (let i = 0; i < times && !token.cancelled; i++) {
+        await runScript(block.children, ctx);
+      }
+      break;
+    }
   }
 }
 
 export async function runScript(blocks: Block[], ctx: Context) {
   for (const block of blocks) {
+    if (ctx.token.cancelled) return;
     await runBlock(block, ctx);
   }
 }

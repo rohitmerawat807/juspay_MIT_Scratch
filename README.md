@@ -1,56 +1,121 @@
-# Welcome to your Expo app 👋
+# Scratch on mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A small visual coding editor inspired by [MIT Scratch](https://scratch.mit.edu/projects/editor/). It was built for the Juspay **MIT_Scratch** assignment.
 
-## Get started
+The original brief is for a web app. I built it as a mobile app (iOS and Android) with React Native and Expo.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Running it
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Scan the QR code with Expo Go (Android) or the Camera app (iOS), or press `i` / `a` to open a simulator. No extra native modules are used, so it runs in Expo Go.
 
-### Other setup steps
+## What's built
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### Blocks
 
-## Learn more
+| Category | Blocks |
+| --- | --- |
+| Motion | `move (10) steps`, `turn (15) degrees`, `go to x: (0) y: (0)` |
+| Looks | `say (Hello!) for (2) seconds`, `think (Hmm...) for (2) seconds` |
+| Control | `repeat (10)` (wraps other blocks) |
 
-To learn more about developing your project with Expo, look at the following resources:
+Every value in a block can be edited by tapping it.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Drag and drop
 
-## Join the community
+- Drag a block from the palette into the script area.
+- Long press a block in the script to pick it up. You can then reorder it, or drop it inside a `repeat`.
+- Drag a script block out of the script area to delete it.
 
-Join our community of developers creating universal apps.
+### Multiple sprites
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **+ Sprite** adds a sprite. **Delete** removes the selected one.
+- Tap a sprite in the list to see and edit its script. Each sprite has its own script.
+- **Play** runs every sprite's script at the same time. **Reset** puts every sprite back at its starting position.
+
+### Hero feature: collision swap
+
+While playing, when two sprites touch, their scripts swap and both start again from the top. The swap also shows in the editor.
+
+To try the example from the brief:
+
+1. Sprite1 (left): `repeat 10` with `move 10 steps` inside
+2. Add Sprite2 (right): `repeat 10` with `move -10 steps` inside
+3. Press **Play**. They walk towards each other and touch. Sprite1 then moves -10 and Sprite2 moves 10, so they walk apart.
+
+## How it works
+
+### Project layout
+
+```
+src/
+  app/index.tsx           the only screen, wires everything together
+  blocks/
+    types.ts              Block, BlockDef, categories
+    catalog.ts            block definitions (label, inputs, defaults, color)
+    tree.ts               insert / move / remove / update in the block tree
+  components/
+    stage.tsx             draws the sprites and speech bubbles
+    sprite-list.tsx       sprite picker, add and delete
+    palette.tsx           category tabs and draggable blocks
+    script-area.tsx       the selected sprite's script, renders repeat bodies
+    block-view.tsx        a single block with its inputs
+    draggable.tsx         pan gesture wrapper
+  hooks/
+    use-sprites.ts        sprite list, selected sprite, script updates
+    use-drag-drop.ts      drag state, drop targets, hit testing
+  engine/
+    run-script.ts         runs one sprite's script
+    play.ts               runs all sprites and handles collisions
+```
+
+### Data
+
+A script is a tree of blocks:
+
+```ts
+type Block = { id: string; type: BlockType; args: Record<string, string>; children?: Block[] };
+```
+
+Only `repeat` has `children`. Each block type has an entry in `catalog.ts` that lists its label parts, inputs and defaults. The palette, the script and the drag preview all draw from that same entry.
+
+Each sprite holds its own `blocks`, plus Reanimated shared values for `x`, `y` and `direction`. Movement runs on the UI thread and doesn't re-render React.
+
+### Stage coordinates
+
+Same as Scratch: a 480 × 360 stage with (0, 0) at the centre and y pointing up. It's scaled to the screen width. Direction 90 faces right, and turning is clockwise. Sprites are kept inside the stage edges.
+
+### Drag and drop
+
+- Built on `react-native-gesture-handler` (`Gesture.Pan`). A copy of the block follows the finger in an overlay at the root of the screen.
+- The script area, every block row and every repeat body register themselves as drop targets.
+- On release, the targets are measured with `measureInWindow`. The smallest one under the finger is used:
+  - a block row means "insert before this block"
+  - a repeat body means "add to the end of this repeat"
+  - the script area means "add to the end of the script"
+- Script blocks use a long press to start a drag, so the script list can still scroll.
+
+### Running scripts
+
+- `runScript` walks the tree with `async`/`await`.
+- `move`, `turn` and `go to` animate with `withTiming`. The next block starts when the animation ends.
+- `say` and `think` show a bubble for N seconds.
+- `repeat` runs its children N times.
+- Each run has a `{ cancelled }` token, which is checked before every block.
+
+### Collision swap
+
+`playAll` starts every sprite's script together. While they run, it checks the distance between each pair of sprites every frame.
+
+When two sprites come within range, both current runs are cancelled. Each sprite then restarts with the other's script, and the scripts are swapped in state too. A pair only swaps when the sprites first touch, not on every frame while they overlap. Play finishes once every running script is done.
+
+## Decisions and limits
+
+- **TypeScript instead of ReScript, `StyleSheet` instead of Tailwind:** this keeps the project a plain Expo app with nothing extra to set up.
+- **Simple sprites:** sprites are emoji, not the Scratch cat.
+- **No Stop button:** a running script has to finish before you can play again. Editing is still allowed while it runs.
+- **Collision is centre distance:** a simple circle check, not pixel-perfect.

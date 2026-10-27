@@ -1,11 +1,12 @@
-export type Category = 'motion' | 'looks';
+export type Category = 'motion' | 'looks' | 'control';
 
-export type BlockType = 'move' | 'turn' | 'goto' | 'say' | 'think';
+export type BlockType = 'move' | 'turn' | 'goto' | 'say' | 'think' | 'repeat';
 
 export type Block = {
   id: string;
   type: BlockType;
   args: Record<string, string>;
+  children?: Block[];
 };
 
 export type InputPart = { key: string; kind: 'number' | 'text' };
@@ -18,4 +19,5 @@ export type BlockDef = {
   category: Category;
   parts: LabelPart[];
   defaults: Record<string, string>;
+  container?: boolean;
 };
